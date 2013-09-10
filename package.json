@@ -17,5 +17,8 @@
     "api"
   ],
   "author": "Kevin Swiber <kswiber@gmail.com>",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "negotiator": "~0.2.7"
+  }
 }

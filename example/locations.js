@@ -7,6 +7,7 @@ var Locations = module.exports = function(proxyUrl) {
 
 Locations.prototype.init = function(config) {
   config
+    .produces('application/json')
     .path('/store/locations')
     .get(this.list)
     .get('/{id}', this.show)

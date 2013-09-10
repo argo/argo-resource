@@ -1,8 +1,12 @@
+var Negotiator = require('negotiator');
+
 var SupportedMethods = ['get','put','patch','post','del','options','trace'];
 
 var ResourceConfig = function() {
   this.$path = null;
   this.$maps = [];
+  this.$produces = [];
+  this.$consumes = [];
 
   var self = this;
   SupportedMethods.forEach(function(m) {
@@ -45,10 +49,28 @@ ResourceConfig.prototype.map = function(path, fn, methods, thisArg) {
 
 SupportedMethods.forEach(function(m) {
   ResourceConfig.prototype[m] = function(path, fn, thisArg) {
+    var consumes = [];
+    var produces = [];
+
     if (typeof path === 'function') {
       thisArg = fn;
       fn = path;
       path = '/';
+    } else if (typeof path === 'object') {
+      var options = path;
+      fn = options.handler;
+      thisArg = options.bind;
+      consumes = options.consumes || [];
+      produces = options.produces || [];
+      path = options.path || '/';
+    }
+
+    if (typeof fn === 'object') {
+      var options = fn;
+      consumes = options.consumes || [];
+      produces = options.produces || [];
+      thisArg = options.bind;
+      fn = options.handler;
     }
 
     if (path[0] !== '/') {
@@ -56,12 +78,35 @@ SupportedMethods.forEach(function(m) {
     }
 
     var key = '$' + m + 's';
-    this[key].push({ path: path, thisArg: thisArg, handler: fn });
+
+    this[key].push({
+      path: path,
+      consumes: consumes,
+      produces: produces,
+      thisArg: thisArg,
+      handler: fn });
+
     return this;
   };
 });
 
-ResourceConfig.prototype.produces = function() {
+ResourceConfig.prototype.produces = function(mediaTypes) {
+  if (typeof mediaTypes === 'string') {
+    this.$produces.push(mediaTypes);
+  } else if (Array.isArray(mediaTypes)) {
+    this.$produces.concat(mediaTypes);
+  }
+
+  return this;
+};
+
+ResourceConfig.prototype.consumes = function(mediaTypes) {
+  if (typeof mediaTypes === 'string') {
+    this.$consumes.push(mediaTypes);
+  } else if (Array.isArray(mediaTypes)) {
+    this.$consumes.concat(mediaTypes);
+  }
+
   return this;
 };
 
@@ -72,6 +117,97 @@ ResourceConfig.prototype.bind = function(thisArg) {
 
 ResourceConfig.create = function(cons) {
   return new ResourceConfig();
+};
+
+var ResourceInstaller = function(config, obj) {
+  this.config = config;
+  this.obj = obj;
+};
+
+ResourceInstaller.prototype.install = function(argo) {
+  var config = this.config;
+  var obj = this.obj;
+
+  argo
+    .map(config.$path, function(server) {
+      server.use(function(handle) {
+        handle('request', function(env, next) {
+          env.resource = { skipHandler: false };
+          next(env);
+        });
+      });
+
+      config.$maps.forEach(function(obj) {
+        var thisArg = obj.thisArg || config.thisArg;
+        server.map(obj.path, { methods: obj.methods }, obj.handler.bind(thisArg));
+      });
+
+      SupportedMethods.forEach(function(m) {
+        var key = '$' + m + 's';
+        config[key].forEach(function(obj) {
+          var thisArg = obj.thisArg || config.thisArg;
+          var consumes = obj.consumes.length ? obj.consumes : config.$consumes;
+          var produces = obj.produces.length ? obj.produces : config.$produces;
+          var handler = obj.handler.bind(thisArg);
+
+          var isHandler = (obj.handler.length === 1)/* function(handle) */;
+
+          if (isHandler) {
+            var hijacker = function(handle) {
+              handler(function(type, options, fn) {
+                if (typeof options === 'function') {
+                  fn = options;
+                  options = null;
+                }
+
+                if (type === 'request') {
+                  var wrapper = function(env, next) {
+                    var negotiator = new Negotiator(env.request);
+                    var preferred = negotiator.preferredMediaTypes(produces);
+                    env.resource.mediaTypes = preferred;
+
+                    var methods = ['PUT', 'POST', 'PATCH'];
+                    if (consumes && methods.indexOf(env.request.method) !== -1
+                        && consumes.indexOf(env.request.headers['content-type']) == -1) {
+                      env.response.statusCode = 415;
+                      env.response.body = { supportedMediaTypes: consumes };
+                      env.resource.skipHandler = true;
+                      next(env);
+                    } else {
+                      fn(env, next);
+                    }
+                  };
+
+                  handle(type, options, wrapper);
+                } else {
+                  handle(type, options, fn);
+                }
+              });
+            };
+
+            server[m](obj.path, hijacker);
+          } else {
+            server[m](obj.path, function(handle) {
+              handle('request', function(env, next) {
+                var negotiator = new Negotiator(env.request);
+                var preferred = negotiator.preferredMediaTypes(produces);
+                env.resource.mediaTypes = preferred;
+
+                var methods = ['PUT', 'POST', 'PATCH'];
+                if (consumes && methods.indexOf(env.request.method) !== -1
+                    && consumes.indexOf(env.request.headers['content-type']) == -1) {
+                  env.response.statusCode = 415;
+                  env.response.body = { supportedMediaTypes: consumes };
+                  return next(env);
+                }
+
+                handler(env, next);
+              });
+            });
+          }
+        });
+      });
+    });
 };
 
 module.exports = function(/* constructor, ...constructorArgs */) {
@@ -91,33 +227,11 @@ module.exports = function(/* constructor, ...constructorArgs */) {
     var config = ResourceConfig.create();
     obj.init(config);
 
-    return {
-      name: 'ResourceConfig',
-      install: function() {
-        argo
-          .map(config.$path, function(server) {
-            config.$maps.forEach(function(obj) {
-              var thisArg = obj.thisArg || config.thisArg;
-              console.log(config.thisArg);
-              server.map(obj.path, { methods: obj.methods }, obj.handler.bind(thisArg));
-            });
+    var installer = new ResourceInstaller(config, obj);
 
-            SupportedMethods.forEach(function(m) {
-              var key = '$' + m + 's';
-              config[key].forEach(function(obj) {
-                var thisArg = obj.thisArg || config.thisArg;
-                var isHandler = (obj.handler.length === 1)/* function(handle) */;
-                if (isHandler) {
-                  server[m](obj.path, obj.handler.bind(thisArg));
-                } else {
-                  server[m](obj.path, function(handle) {
-                    handle('request', obj.handler.bind(thisArg));
-                  });
-                }
-              });
-            });
-          });
-      }
+    return {
+      name: 'resource',
+      install: installer.install.bind(installer, argo)
     };
   };
 
