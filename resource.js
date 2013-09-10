@@ -1,7 +1,14 @@
+var SupportedMethods = ['get','put','patch','post','del','options','trace'];
+
 var ResourceConfig = function() {
   this.$path = null;
-  this.$gets = [];
-  this.$posts = [];
+
+  var self = this;
+  SupportedMethods.forEach(function(m) {
+    var key = '$' + m + 's';
+    self[key] = [];
+  });
+
   this.thisArg = null;
 };
 
@@ -14,35 +21,23 @@ ResourceConfig.prototype.path = function(path) {
   return this;
 };
 
-ResourceConfig.prototype.get = function(path, fn, thisArg) {
-  if (typeof path === 'function') {
-    thisArg = fn;
-    fn = path;
-    path = '/';
-  }
+SupportedMethods.forEach(function(m) {
+  ResourceConfig.prototype[m] = function(path, fn, thisArg) {
+    if (typeof path === 'function') {
+      thisArg = fn;
+      fn = path;
+      path = '/';
+    }
 
-  if (path[0] !== '/') {
-    path = '/' + path;
-  }
+    if (path[0] !== '/') {
+      path = '/' + path;
+    }
 
-  this.$gets.push({ path: path, thisArg: thisArg, handler: fn });
-  return this;
-};
-
-ResourceConfig.prototype.post = function(path, fn, thisArg) {
-  if (typeof path === 'function') {
-    thisArg = fn;
-    fn = path;
-    path = '/';
-  }
-
-  if (path[0] !== '/') {
-    path = '/' + path;
-  }
-
-  this.$posts.push({ path: path, thisArg: thisArg, handler: fn });
-  return this;
-};
+    var key = '$' + m + 's';
+    this[key].push({ path: path, thisArg: thisArg, handler: fn });
+    return this;
+  };
+});
 
 ResourceConfig.prototype.produces = function() {
   return this;
@@ -79,17 +74,13 @@ exports.of = function(/* constructor, ...constructorArgs */) {
       install: function() {
         argo
           .map(config.$path, function(server) {
-            config.$gets.forEach(function(get) {
-              var thisArg = get.thisArg || config.thisArg;
-              server.get(get.path, function(handle) {
-                handle('request', get.handler.bind(thisArg));
-              });
-            });
-
-            config.$posts.forEach(function(post) {
-              var thisArg = post.thisArg || config.thisArg;
-              server.post(post.path, function(handle) {
-                handle('request', post.handler.bind(thisArg));
+            SupportedMethods.forEach(function(m) {
+              var key = '$' + m + 's';
+              config[key].forEach(function(obj) {
+                var thisArg = obj.thisArg || config.thisArg;
+                server[m](obj.path, function(handle) {
+                  handle('request', obj.handler.bind(thisArg));
+                });
               });
             });
           });

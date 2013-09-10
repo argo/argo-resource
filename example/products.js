@@ -11,27 +11,13 @@ Products.prototype.init = function(config) {
     .get(this.list)
     .post(this.insert)
     .get('/{id}', this.show)
+    .put('/{id}', this.update)
+    .del('/{id}', this.remove)
     .bind(this);
 };
 
 Products.prototype.list = function(env, next) {
   env.response.body = this.products;
-  next(env);
-};
-
-Products.prototype.show = function(env, next) {
-  var key = parseInt(env.request.params.id);
-
-  var filtered = this.products.filter(function(p) {
-    return p.id === key;
-  });
-
-  if (filtered.length) {
-    env.response.body = filtered[0];
-  } else {
-    env.response.statusCode = 404;
-  }
-
   next(env);
 };
 
@@ -52,4 +38,70 @@ Products.prototype.insert = function(env, next) {
 
     next(env);
   });
+};
+
+Products.prototype.show = function(env, next) {
+  var key = parseInt(env.request.params.id);
+
+  var filtered = this.products.filter(function(p) {
+    return p.id === key;
+  });
+
+  if (filtered.length) {
+    env.response.body = filtered[0];
+  } else {
+    env.response.statusCode = 404;
+  }
+
+  next(env);
+};
+
+Products.prototype.update = function(env, next) {
+  var key = parseInt(env.request.params.id);
+
+  var index;
+  var filtered = this.products.forEach(function(p, i) {
+    if (p.id === key) {
+      index = i;
+    }
+  });
+
+  if (index) {
+    var self = this;
+    env.request.getBody(function(err, body) {
+      if (err) {
+        env.response.statusCode = 400;
+      } else {
+        self.products[index] = JSON.parse(body);
+        env.response.statusCode = 200;
+        env.response.body = self.products[index];
+      }
+
+      next(env);
+    });
+  } else {
+    env.response.statusCode = 404;
+    next(env);
+  }
+};
+
+Products.prototype.remove = function(env, next) {
+  var key = parseInt(env.request.params.id);
+
+  var index;
+
+  for (var i = 0; i < this.products.length; i++) {
+    if (this.products[i].id === key) {
+      index = i;
+    }
+  }
+
+  if (index) {
+    this.products.splice(index, 1);
+    env.response.statusCode = 204;
+  } else {
+    env.response.statusCode = 404;
+  }
+
+  next(env);
 };
