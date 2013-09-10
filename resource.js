@@ -2,6 +2,7 @@ var SupportedMethods = ['get','put','patch','post','del','options','trace'];
 
 var ResourceConfig = function() {
   this.$path = null;
+  this.$maps = [];
 
   var self = this;
   SupportedMethods.forEach(function(m) {
@@ -18,6 +19,27 @@ ResourceConfig.prototype.path = function(path) {
   }
 
   this.$path = path;
+  return this;
+};
+
+ResourceConfig.prototype.map = function(path, fn, methods, thisArg) {
+  if (typeof path === 'function') {
+    fn = path;
+    options = fn;
+    thisArg = options;
+    path = '/';
+  }
+
+  if (!Array.isArray(methods)) {
+    thisArg = methods;
+    methods = ['GET'];
+  }
+
+  if (path[0] !== '/') {
+    path = '/' + path;
+  }
+
+  this.$maps.push({ path: path, methods: methods, thisArg: thisArg, handler: fn });
   return this;
 };
 
@@ -74,13 +96,24 @@ exports.of = function(/* constructor, ...constructorArgs */) {
       install: function() {
         argo
           .map(config.$path, function(server) {
+            config.$maps.forEach(function(obj) {
+              var thisArg = obj.thisArg || config.thisArg;
+              console.log(config.thisArg);
+              server.map(obj.path, { methods: obj.methods }, obj.handler.bind(thisArg));
+            });
+
             SupportedMethods.forEach(function(m) {
               var key = '$' + m + 's';
               config[key].forEach(function(obj) {
                 var thisArg = obj.thisArg || config.thisArg;
-                server[m](obj.path, function(handle) {
-                  handle('request', obj.handler.bind(thisArg));
-                });
+                var isHandler = (obj.handler.length === 1)/* function(handle) */;
+                if (isHandler) {
+                  server[m](obj.path, obj.handler.bind(thisArg));
+                } else {
+                  server[m](obj.path, function(handle) {
+                    handle('request', obj.handler.bind(thisArg));
+                  });
+                }
               });
             });
           });
