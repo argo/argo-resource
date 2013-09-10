@@ -74,7 +74,7 @@ ResourceConfig.create = function(cons) {
   return new ResourceConfig();
 };
 
-exports.of = function(/* constructor, ...constructorArgs */) {
+module.exports = function(/* constructor, ...constructorArgs */) {
   var args = Array.prototype.slice.call(arguments);
 
   var constructor = args[0];

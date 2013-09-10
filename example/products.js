@@ -10,7 +10,7 @@ Products.prototype.init = function(config) {
   config
     .path('/store/products')
     .get(this.list)
-    .post(this.insert)
+    .post(this.create)
     .get('/{id}', this.show)
     .put('/{id}', this.update)
     .del('/{id}', this.remove)
@@ -22,9 +22,14 @@ Products.prototype.list = function(env, next) {
   next(env);
 };
 
-Products.prototype.insert = function(env, next) {
+Products.prototype.create = function(env, next) {
   var self = this;
   env.request.getBody(function(err, body) {
+    if (err || !body) {
+      env.response.statusCode = 400;
+      return next(env);
+    }
+
     var obj = JSON.parse(body.toString());
     self.products.push(obj);
     
@@ -70,7 +75,7 @@ Products.prototype.update = function(env, next) {
   if (index) {
     var self = this;
     env.request.getBody(function(err, body) {
-      if (err) {
+      if (err || !body) {
         env.response.statusCode = 400;
       } else {
         self.products[index] = JSON.parse(body);

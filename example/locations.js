@@ -1,3 +1,5 @@
+var url = require('url');
+
 var Locations = module.exports = function(proxyUrl) {
   this.proxyUrl = proxyUrl
     || 'https://api.usergrid.com/kevinswiber/sandbox/store-locations';
@@ -49,8 +51,10 @@ Locations.prototype.show = function(handle) {
   handle('request', function(env, next) {
     var id = env.request.params.id;
 
-    env.target.url = self.proxyUrl + '?ql='
-      + encodeURIComponent('SELECT * WHERE storeNumber=' + id);
+    var parsed = url.parse(self.proxyUrl, true);
+    parsed.query = { ql: 'SELECT * WHERE storeNumber=' + id };
+
+    env.target.url = url.format(parsed);
 
     next(env);
   });

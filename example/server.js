@@ -7,6 +7,6 @@ var Locations = require('./locations');
 
 argo()
   .use(router)
-  .use(resource.of(Products))
-  .use(resource.of(Locations))
+  .use(resource(Products))
+  .use(resource(Locations))
   .listen(3000);
