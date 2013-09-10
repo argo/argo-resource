@@ -2,7 +2,8 @@ var path = require('path');
 var url = require('url');
 
 var Products = module.exports = function(products) {
-  this.products = products || [];
+  this.products = products ||
+    [{ id: 1, name: 'Shinola Fanny Pack' }];
 };
 
 Products.prototype.init = function(config) {
@@ -60,7 +61,7 @@ Products.prototype.update = function(env, next) {
   var key = parseInt(env.request.params.id);
 
   var index;
-  var filtered = this.products.forEach(function(p, i) {
+  this.products.forEach(function(p, i) {
     if (p.id === key) {
       index = i;
     }

@@ -7,6 +7,6 @@ var Locations = require('./locations');
 
 argo()
   .use(router)
-  .use(resource.of(Products, [{ id: 1, name: 'Shinola Fanny Pack' }]))
+  .use(resource.of(Products))
   .use(resource.of(Locations))
   .listen(3000);
