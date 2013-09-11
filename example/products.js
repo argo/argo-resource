@@ -8,23 +8,14 @@ var Products = module.exports = function(products) {
 
 Products.prototype.init = function(config) {
   config
-    /* root */
     .path('/store/products')
     .produces('application/json')
-    /* collection */
+    .consumes('application/json')
     .get(this.list)
-    .post({
-      consumes: ['application/json'],
-      handler: this.create
-    })
-    /* item */
+    .post(this.create)
     .get('/{id}', this.show)
-    .put('/{id}', {
-      consumes: ['application/json'],
-      handler: this.update,
-    })
+    .put('/{id}', this.update)
     .del('/{id}', this.remove)
-    /* function binding */
     .bind(this);
 };
 

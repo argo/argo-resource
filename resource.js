@@ -162,19 +162,25 @@ ResourceInstaller.prototype.install = function(argo) {
 
                 if (type === 'request') {
                   var wrapper = function(env, next) {
-                    var negotiator = new Negotiator(env.request);
-                    var preferred = negotiator.preferredMediaTypes(produces);
-                    env.resource.mediaTypes = preferred;
+                    if (!env.resource.mediaTypes) {
+                      var negotiator = new Negotiator(env.request);
+                      var preferred = negotiator.preferredMediaTypes(produces);
+                      env.resource.mediaTypes = preferred;
+                    }
 
                     var methods = ['PUT', 'POST', 'PATCH'];
-                    if (consumes && methods.indexOf(env.request.method) !== -1
-                        && consumes.indexOf(env.request.headers['content-type']) == -1) {
-                      env.response.statusCode = 415;
-                      env.response.body = { supportedMediaTypes: consumes };
-                      env.resource.skipHandler = true;
-                      next(env);
-                    } else {
-                      fn(env, next);
+                    if (methods.indexOf(env.request.method) !== -1) {
+                      if (env.request.headers['content-type'] && consumes
+                          && consumes.indexOf(env.request.headers['content-type']) == -1) {
+                        env.response.statusCode = 415;
+                        env.resource.error = { message: 'Unsupported Media Type', supported: consumes };
+                        env.resource.skipHandler = true;
+                        return next(env);
+                      } else {
+                        env.resource.requestType = env.request.headers['content-type'];
+
+                        fn(env, next);
+                      }
                     }
                   };
 
@@ -194,11 +200,17 @@ ResourceInstaller.prototype.install = function(argo) {
                 env.resource.mediaTypes = preferred;
 
                 var methods = ['PUT', 'POST', 'PATCH'];
-                if (consumes && methods.indexOf(env.request.method) !== -1
-                    && consumes.indexOf(env.request.headers['content-type']) == -1) {
-                  env.response.statusCode = 415;
-                  env.response.body = { supportedMediaTypes: consumes };
-                  return next(env);
+                if (methods.indexOf(env.request.method) !== -1) {
+                  if (env.request.headers['content-type'] && consumes
+                      && consumes.indexOf(env.request.headers['content-type']) == -1) {
+                    env.response.statusCode = 415;
+                    env.resource.error = { message: 'Unsupported Media Type', supported: consumes };
+
+                    return next(env);
+                  } else {
+                    env.resource.requestType = env.request.headers['content-type'];
+                  }
+                  
                 }
 
                 handler(env, next);
