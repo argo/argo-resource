@@ -7,8 +7,8 @@ var Locations = module.exports = function(proxyUrl) {
 
 Locations.prototype.init = function(config) {
   config
-    .produces('application/json')
     .path('/store/locations')
+    .produces('application/json')
     .get(this.list)
     .get('/{id}', this.show)
     .bind(this);
@@ -50,19 +50,20 @@ Locations.prototype.show = function(handle) {
   var self = this;
 
   handle('request', function(env, next) {
-    var id = env.request.params.id;
+    var id = env.route.params.id;
 
     var parsed = url.parse(self.proxyUrl, true);
     parsed.query = { ql: 'SELECT * WHERE storeNumber=' + id };
 
     env.target.url = url.format(parsed);
 
+    console.log(env.target.url);
     next(env);
   });
 
   handle('response', function(env, next) {
     env.target.response.getBody(function(err, body) {
-      if (err) {
+      if (err || !body) {
         env.response.statusCode = 500;
         return next(env);
       }

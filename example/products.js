@@ -49,7 +49,7 @@ Products.prototype.create = function(env, next) {
 };
 
 Products.prototype.show = function(env, next) {
-  var key = parseInt(env.request.params.id);
+  var key = parseInt(env.route.params.id);
 
   var filtered = this.products.filter(function(p) {
     return p.id === key;
@@ -65,7 +65,7 @@ Products.prototype.show = function(env, next) {
 };
 
 Products.prototype.update = function(env, next) {
-  var key = parseInt(env.request.params.id);
+  var key = parseInt(env.route.params.id);
 
   var index;
   this.products.forEach(function(p, i) {
@@ -94,7 +94,7 @@ Products.prototype.update = function(env, next) {
 };
 
 Products.prototype.remove = function(env, next) {
-  var key = parseInt(env.request.params.id);
+  var key = parseInt(env.route.params.id);
 
   var index;
 

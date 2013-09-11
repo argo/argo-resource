@@ -164,8 +164,8 @@ ResourceInstaller.prototype.install = function(argo) {
                   var wrapper = function(env, next) {
                     if (!env.resource.mediaTypes) {
                       var negotiator = new Negotiator(env.request);
-                      var preferred = negotiator.preferredMediaTypes(produces);
-                      env.resource.mediaTypes = preferred;
+                      var preferred = negotiator.preferredMediaType(produces);
+                      env.resource.responseType = preferred;
                     }
 
                     var methods = ['PUT', 'POST', 'PATCH'];
@@ -181,6 +181,8 @@ ResourceInstaller.prototype.install = function(argo) {
 
                         fn(env, next);
                       }
+                    } else {
+                      fn(env, next);
                     }
                   };
 
@@ -197,7 +199,7 @@ ResourceInstaller.prototype.install = function(argo) {
               handle('request', function(env, next) {
                 var negotiator = new Negotiator(env.request);
                 var preferred = negotiator.preferredMediaTypes(produces);
-                env.resource.mediaTypes = preferred;
+                env.resource.responseType = preferred;
 
                 var methods = ['PUT', 'POST', 'PATCH'];
                 if (methods.indexOf(env.request.method) !== -1) {
