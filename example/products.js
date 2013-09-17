@@ -32,7 +32,6 @@ Products.prototype.init = function(config) {
 };
 
 Products.prototype.list = function(env, next) {
-  console.log('in list');
   env.response.body = this.products;
   next(env);
 };
@@ -62,7 +61,6 @@ Products.prototype.create = function(env, next) {
 };
 
 Products.prototype.show = function(env, next) {
-  console.log('in show');
   var key = parseInt(env.route.params.id);
 
   var filtered = this.products.filter(function(p) {

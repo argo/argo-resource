@@ -17,15 +17,18 @@ module.exports = function(handle) {
       var username = credentials[0];
       var password = credentials[1];
 
-      if (username === 'kevin' && password === 'swiber') {
-        env.auth.user = {
-          username: username,
-          operations: ['rest.products.list', 'rest.products.item.remove', 'rest.products.create']
-        };
+      if (env.auth.authenticate) {
+        env.auth.authenticate(username, password, function(err, user) {
+          if (user) {
+            env.auth.user = user;
+            env.auth.isAuthenticated = true;
 
-        env.auth.isAuthenticated = true;
-
-        next(env);
+            next(env);
+          } else {
+            setError(env);
+            next(env);
+          }
+        });
       } else {
         setError(env);
         next(env);
@@ -37,5 +40,6 @@ module.exports = function(handle) {
 function setError(env) {
   env.auth.isAuthenticated = false;
   env.response.statusCode = 401;
-  env.response.setHeader('WWW-Authenticate', 'Basic Realm="Realm"');
+  env.response.setHeader('WWW-Authenticate', 'Basic Realm="'
+      + (env.auth.realm || 'Realm') + '"');
 };

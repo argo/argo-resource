@@ -137,6 +137,7 @@ ResourceInstaller.prototype.install = function(argo) {
         handle('request', function(env, next) {
           env.resource = {
             _skipHandler: false,
+            config: config,
             current: null,
             _skip: false,
             skip: function(bool) { env.resource._skip = bool; }
