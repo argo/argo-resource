@@ -19,6 +19,7 @@
   "author": "Kevin Swiber <kswiber@gmail.com>",
   "license": "MIT",
   "dependencies": {
-    "negotiator": "~0.2.7"
+    "negotiator": "~0.2.7",
+    "pipeworks": "~1.2.0"
   }
 }

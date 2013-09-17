@@ -11,15 +11,28 @@ Products.prototype.init = function(config) {
     .path('/store/products')
     .produces('application/json')
     .consumes('application/json')
-    .get(this.list)
-    .post(this.create)
+    .get({
+      path: '/',
+      handler: this.list,
+      operation: 'rest.products.list'
+    })
+    .post({
+      path: '/',
+      handler: this.create,
+      operation: 'rest.products.create'
+    })
     .get('/{id}', this.show)
     .put('/{id}', this.update)
-    .del('/{id}', this.remove)
+    .del({
+      path: '/{id}',
+      handler: this.remove,
+      operation: 'rest.products.item.remove'
+    })
     .bind(this);
 };
 
 Products.prototype.list = function(env, next) {
+  console.log('in list');
   env.response.body = this.products;
   next(env);
 };
@@ -49,6 +62,7 @@ Products.prototype.create = function(env, next) {
 };
 
 Products.prototype.show = function(env, next) {
+  console.log('in show');
   var key = parseInt(env.route.params.id);
 
   var filtered = this.products.filter(function(p) {
@@ -96,7 +110,7 @@ Products.prototype.update = function(env, next) {
 Products.prototype.remove = function(env, next) {
   var key = parseInt(env.route.params.id);
 
-  var index;
+  var index = null;
 
   for (var i = 0; i < this.products.length; i++) {
     if (this.products[i].id === key) {
@@ -104,7 +118,7 @@ Products.prototype.remove = function(env, next) {
     }
   }
 
-  if (index) {
+  if (index !== null) {
     this.products.splice(index, 1);
     env.response.statusCode = 204;
   } else {

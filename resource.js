@@ -1,4 +1,5 @@
 var Negotiator = require('negotiator');
+var pipeworks = require('pipeworks');
 
 var SupportedMethods = ['get','put','patch','post','del','options','trace'];
 
@@ -49,42 +50,44 @@ ResourceConfig.prototype.map = function(path, fn, methods, thisArg) {
 
 SupportedMethods.forEach(function(m) {
   ResourceConfig.prototype[m] = function(path, fn, thisArg) {
-    var consumes = [];
-    var produces = [];
+    var obj = {
+      path: path,
+      consumes: [],
+      produces: [],
+      thisArg: thisArg,
+      handler: fn
+    };
 
     if (typeof path === 'function') {
-      thisArg = fn;
-      fn = path;
-      path = '/';
+      obj.thisArg = fn;
+      obj.handler = path;
+      obj.path = '/';
     } else if (typeof path === 'object') {
-      var options = path;
-      fn = options.handler;
-      thisArg = options.bind;
-      consumes = options.consumes || [];
-      produces = options.produces || [];
-      path = options.path || '/';
+      Object.keys(path).forEach(function(key) {
+        if (path.hasOwnProperty(key)) {
+          obj[key] = path[key];
+        }
+      });
+      obj.thisArg = thisArg || obj.bind;
     }
 
     if (typeof fn === 'object') {
-      var options = fn;
-      consumes = options.consumes || [];
-      produces = options.produces || [];
-      thisArg = options.bind;
-      fn = options.handler;
+      Object.keys(fn).forEach(function(key) {
+        if (path.hasOwnProperty(key)) {
+          obj[key] = path[key];
+        }
+      });
+      obj.thisArg = thisArg || obj.bind;
+      obj.path = path;
     }
 
-    if (path[0] !== '/') {
-      path = '/' + path;
+    if (obj.path[0] !== '/') {
+      obj.path = '/' + obj.path;
     }
 
     var key = '$' + m + 's';
 
-    this[key].push({
-      path: path,
-      consumes: consumes,
-      produces: produces,
-      thisArg: thisArg,
-      handler: fn });
+    this[key].push(obj);
 
     return this;
   };
@@ -132,7 +135,12 @@ ResourceInstaller.prototype.install = function(argo) {
     .map(config.$path, function(server) {
       server.use(function(handle) {
         handle('request', function(env, next) {
-          env.resource = { skipHandler: false };
+          env.resource = {
+            _skipHandler: false,
+            current: null,
+            _skip: false,
+            skip: function(bool) { env.resource._skip = bool; }
+          };
           next(env);
         });
       });
@@ -153,7 +161,7 @@ ResourceInstaller.prototype.install = function(argo) {
           var isHandler = (obj.handler.length === 1)/* function(handle) */;
 
           if (isHandler) {
-            var hijacker = function(handle) {
+            /*var hijacker = function(handle) {
               handler(function(type, options, fn) {
                 if (typeof options === 'function') {
                   fn = options;
@@ -178,7 +186,7 @@ ResourceInstaller.prototype.install = function(argo) {
                           && consumes.indexOf(env.request.headers['content-type']) == -1) {
                         env.response.statusCode = 415;
                         env.resource.error = { message: 'Unsupported Media Type', supported: consumes };
-                        env.resource.skipHandler = true;
+                        env.resource._skipHandler = true;
                         return next(env);
                       } else {
                         env.resource.requestType = env.request.headers['content-type'];
@@ -197,35 +205,98 @@ ResourceInstaller.prototype.install = function(argo) {
               });
             };
 
-            server[m](obj.path, hijacker);
+            server[m](obj.path, hijacker);*/
           } else {
+            var oldObj = obj;
             server[m](obj.path, function(handle) {
+              var obj = {};
+
+              Object.keys(oldObj).forEach(function(key) {
+                obj[key] = oldObj[key];
+              });
+
               handle('request', function(env, next) {
-                if (!env.resource.responseType) {
-                  var negotiator = new Negotiator(env.request);
-                  var preferred = negotiator.preferredMediaType(produces);
-                  env.resource.responseType = preferred;
-                }
+                var pipeline = pipeworks()
+                  .fit(function(context, next) {
+                    context.env.resource.next = context.next;
+                    context.env.resource.current = context.obj;
+                    context.env.resource.handler = context.handler;
 
-                if (env.resource.requestType) {
-                  return handler(env, next);
-                }
+                    var pre = context.env.pipeline('resource:request:before');
+                    if (pre) {
+                      pre.siphon(context.env, function(env) {
+                        context.env = env;
+                        context.obj = env.resource.current;
+                        context.next = env.resource.next;
+                        context.handler = env.resource.handler;
+                        next(context);
+                      });
+                    } else {
+                      next(context);
+                    }
+                  })
+                  .fit(function(context, next) {
+                    if (context.env.resource._skip) {
+                      return next(context);
+                    }
 
-                var methods = ['PUT', 'POST', 'PATCH'];
-                if (methods.indexOf(env.request.method) !== -1) {
-                  if (env.request.headers['content-type'] && consumes
-                      && consumes.indexOf(env.request.headers['content-type']) == -1) {
-                    env.response.statusCode = 415;
-                    env.resource.error = { message: 'Unsupported Media Type', supported: consumes };
+                    if (!context.env.resource.responseType) {
+                      var negotiator = new Negotiator(context.env.request);
+                      var preferred = negotiator.preferredMediaType(produces);
+                      context.env.resource.responseType = preferred;
+                    }
 
-                    return next(env);
-                  } else {
-                    env.resource.requestType = env.request.headers['content-type'];
-                  }
-                  
-                }
+                    if (context.env.resource.requestType) {
+                      return context.handler(context.env, function(env) {
+                        context.env = env;
+                        context.obj = env.resource.current;
+                        context.next = env.resource.next;
+                        context.handler = env.resource.handler;
+                        next(context);
+                      });
+                    }
 
-                handler(env, next);
+                    var methods = ['PUT', 'POST', 'PATCH'];
+                    if (methods.indexOf(context.env.request.method) !== -1) {
+                      if (context.env.request.headers['content-type'] && consumes
+                          && consumes.indexOf(context.env.request.headers['content-type']) == -1) {
+                        context.env.response.statusCode = 415;
+                        context.env.resource.error = { message: 'Unsupported Media Type', supported: consumes };
+
+                        return next(context);
+                      } else {
+                        context.env.resource.requestType = env.request.headers['content-type'];
+                      }
+                    }
+
+                    context.handler(context.env, function(env) {
+                      context.env = env;
+                      context.obj = env.resource.current;
+                      context.next = env.resource.next;
+                      context.handler = env.resource.handler;
+                      next(context);
+                    });
+                  })
+                  .fit(function(context, next) {
+                    var post = context.env.pipeline('resource:request:after');
+                    if (post) {
+                      post.siphon(context.env, function(env) {
+                        context.env = env;
+                        context.obj = env.resource.current;
+                        context.next = env.resource.next;
+                        context.handler = env.resource.handler;
+                        next(context);
+                      });
+                    } else {
+                      next(context);
+                    }
+                  })
+                  .fit(function(context, next) {
+                    context.next(context.env);
+                  });
+
+                var context = { env: env, next: next, obj: obj, handler: handler };
+                pipeline.flow(context);
               });
             });
           }
