@@ -8,27 +8,14 @@ var Products = module.exports = function(products) {
 
 Products.prototype.init = function(config) {
   config
-    .path('/store/products')
+    .path('/products')
     .produces('application/json')
     .consumes('application/json')
-    .get({
-      path: '/',
-      handler: this.list,
-      operation: 'rest.products.list'
-    })
-    .post({
-      path: '/',
-      handler: this.create,
-      operation: 'rest.products.create'
-    })
-    .get('/{id}', this.show)
-    .put('/{id}', this.update)
-    .del({
-      path: '/{id}',
-      handler: this.remove,
-      operation: 'rest.products.item.remove'
-    })
-    .bind(this);
+    .get('/', this.list, { operation: 'rest.products.list' })
+    .post('/', this.create, { operation: 'rest.products.create' })
+    .get('/{id}', this.show, { operation: 'rest.products.show' })
+    .put('/{id}', this.update, { operation: 'rest.products.update' })
+    .del('/{id}', this.remove, { operation: 'rest.products.remove' });
 };
 
 Products.prototype.list = function(env, next) {
@@ -77,16 +64,17 @@ Products.prototype.show = function(env, next) {
 };
 
 Products.prototype.update = function(env, next) {
+  console.log('in update');
   var key = parseInt(env.route.params.id);
 
-  var index;
+  var index = -1;
   this.products.forEach(function(p, i) {
     if (p.id === key) {
       index = i;
     }
   });
 
-  if (index) {
+  if (index > -1) {
     var self = this;
     env.request.getBody(function(err, body) {
       if (err || !body) {

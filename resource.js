@@ -4,7 +4,7 @@ var pipeworks = require('pipeworks');
 var SupportedMethods = ['get','put','patch','post','del','options','trace'];
 
 var ResourceConfig = function() {
-  this.$path = null;
+  this.$path = '/';
   this.$maps = [];
   this.$produces = [];
   this.$consumes = [];
@@ -19,7 +19,7 @@ var ResourceConfig = function() {
 };
 
 ResourceConfig.prototype.path = function(path) {
-  if (path[0] !== '/') {
+  if (path !== '*' && path[0] !== '/') {
     path = '/' + path;
   }
 
@@ -49,16 +49,30 @@ ResourceConfig.prototype.map = function(path, fn, methods, thisArg) {
 };
 
 SupportedMethods.forEach(function(m) {
-  ResourceConfig.prototype[m] = function(path, fn, thisArg) {
+  ResourceConfig.prototype[m] = function(path, fn, opts) {
+    var hasOpts = false;
+
+    if (typeof opts === 'object') {
+      hasOpts = true;
+    } else {
+      opts = {};
+    }
+
     var obj = {
       path: path,
-      consumes: [],
-      produces: [],
-      thisArg: thisArg,
+      consumes: opts.consumes || [],
+      produces: opts.produces || [],
+      thisArg: opts.bind,
       handler: fn
     };
 
-    if (typeof path === 'function') {
+    if (hasOpts) {
+      Object.keys(opts).forEach(function(key) {
+        obj[key] = opts[key];
+      });
+    }
+
+    /*if (typeof path === 'function') {
       obj.thisArg = fn;
       obj.handler = path;
       obj.path = '/';
@@ -68,7 +82,7 @@ SupportedMethods.forEach(function(m) {
           obj[key] = path[key];
         }
       });
-      obj.thisArg = thisArg || obj.bind;
+      obj.thisArg = obj.bind;
     }
 
     if (typeof fn === 'object') {
@@ -80,6 +94,10 @@ SupportedMethods.forEach(function(m) {
       obj.thisArg = thisArg || obj.bind;
       obj.path = path;
     }
+
+    if (!obj.path || typeof obj.path !== 'string') {
+      obj.path = '/';
+    }*/
 
     if (obj.path[0] !== '/') {
       obj.path = '/' + obj.path;
@@ -131,6 +149,11 @@ ResourceInstaller.prototype.install = function(argo) {
   var config = this.config;
   var obj = this.obj;
 
+  var self = this;
+
+  if (config.$path === '/') {
+    config.$path = '*';
+  }
   argo
     .map(config.$path, function(server) {
       server.use(function(handle) {
@@ -154,7 +177,7 @@ ResourceInstaller.prototype.install = function(argo) {
       SupportedMethods.forEach(function(m) {
         var key = '$' + m + 's';
         config[key].forEach(function(obj) {
-          var thisArg = obj.thisArg || config.thisArg;
+          var thisArg = ((obj.thisArg || config.thisArg) || self.obj);
           var consumes = obj.consumes.length ? obj.consumes : config.$consumes;
           var produces = obj.produces.length ? obj.produces : config.$produces;
           var handler = obj.handler.bind(thisArg);

@@ -6,13 +6,15 @@ module.exports = function(handle) {
       if (username === 'kevin' && password === 'swiber') {
         var operations = {
           listProducts: 'rest.products.list',
-          removeProduct: 'rest.products.item.remove',
-          createProduct: 'rest.products.create'
+          removeProduct: 'rest.products.remove',
+          createProduct: 'rest.products.create',
+          updateProduct: 'rest.products.update',
+          showProduct: 'rest.products.show'
         };
 
         var user = {
           username: username,
-          operations: [operations.listProducts, operations.createProduct]
+          operations: [operations.listProducts, operations.createProduct, operations.showProduct]
         };
 
         cb(null, user);
