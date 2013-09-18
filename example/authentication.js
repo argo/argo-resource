@@ -1,5 +1,5 @@
 module.exports = function(handle) {
-  handle('request', function(env, next) {
+  handle('auth:basic:setup', function(env, next) {
     env.auth = env.auth || {};
     env.auth.realm = 'Store';
     env.auth.authenticate = function(username, password, cb) {

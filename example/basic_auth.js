@@ -1,5 +1,17 @@
 module.exports = function(handle) {
   handle('request', function(env, next) {
+    var setup = env.pipeline('auth:basic:setup');
+    if (!setup) {
+      console.log('Basic auth is not enabled. Add a handler for auth:basic:setup.');
+      return next(env);
+    }
+
+    setup.siphon(env, handleAuth(next));
+  });
+};
+
+function handleAuth(next) {
+  return function(env) {
     var auth;
 
     env.auth = env.auth || {};
@@ -34,8 +46,8 @@ module.exports = function(handle) {
         next(env);
       }
     }
-  });
-};
+  }
+}
 
 function setError(env) {
   env.auth.isAuthenticated = false;
