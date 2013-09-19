@@ -11,11 +11,11 @@ Products.prototype.init = function(config) {
     .path('/products')
     .produces('application/json')
     .consumes('application/json')
-    .get('/', this.list, { operation: 'rest.products.list' })
-    .post('/', this.create, { operation: 'rest.products.create' })
-    .get('/{id}', this.show, { operation: 'rest.products.show' })
-    .put('/{id}', this.update, { operation: 'rest.products.update' })
-    .del('/{id}', this.remove, { operation: 'rest.products.remove' });
+    .get('/', this.list, { operation: 'products:list' })
+    .post('/', this.create, { operation: 'products:create' })
+    .get('/{id}', this.show, { operation: 'products:show' })
+    .put('/{id}', this.update, { operation: 'products:update' })
+    .del('/{id}', this.remove, { operation: 'products:remove' });
 };
 
 Products.prototype.list = function(env, next) {
@@ -32,16 +32,28 @@ Products.prototype.create = function(env, next) {
     }
 
     var obj = JSON.parse(body.toString());
-    self.products.push(obj);
+
+    if (!obj.name || typeof obj.name !== 'string') {
+      env.response.statusCode = 400;
+      return next(env);
+    }
+
+    var product = {
+      id: self.products.length + 1,
+      name: obj.name
+    };
+
+    self.products.push(product);
     
     var parsed = url.parse(env.argo.uri());
-    parsed.pathname = path.join(parsed.pathname, obj.id.toString());
+    parsed.pathname = path.join(parsed.pathname, product.id.toString());
     parsed.search = parsed.hash = parsed.auth = '';
     
     var location = url.format(parsed);
 
     env.response.statusCode = 201;
     env.response.setHeader('Location', location);
+    env.response.body = product;
 
     next(env);
   });
@@ -64,7 +76,6 @@ Products.prototype.show = function(env, next) {
 };
 
 Products.prototype.update = function(env, next) {
-  console.log('in update');
   var key = parseInt(env.route.params.id);
 
   var index = -1;
