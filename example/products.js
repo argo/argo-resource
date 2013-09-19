@@ -8,15 +8,14 @@ var Products = module.exports = function(products) {
 
 Products.prototype.init = function(config) {
   config
-    .path('/store/products')
+    .path('/products')
     .produces('application/json')
     .consumes('application/json')
-    .get(this.list)
-    .post(this.create)
-    .get('/{id}', this.show)
-    .put('/{id}', this.update)
-    .del('/{id}', this.remove)
-    .bind(this);
+    .get('/', this.list, { action: 'products:list' })
+    .post('/', this.create, { action: 'products:create' })
+    .get('/{id}', this.show, { action: 'products:show' })
+    .put('/{id}', this.update, { action: 'products:update' })
+    .del('/{id}', this.remove, { action: 'products:remove' });
 };
 
 Products.prototype.list = function(env, next) {
@@ -33,16 +32,28 @@ Products.prototype.create = function(env, next) {
     }
 
     var obj = JSON.parse(body.toString());
-    self.products.push(obj);
+
+    if (!obj.name || typeof obj.name !== 'string') {
+      env.response.statusCode = 400;
+      return next(env);
+    }
+
+    var product = {
+      id: self.products.length + 1,
+      name: obj.name
+    };
+
+    self.products.push(product);
     
     var parsed = url.parse(env.argo.uri());
-    parsed.pathname = path.join(parsed.pathname, obj.id.toString());
+    parsed.pathname = path.join(parsed.pathname, product.id.toString());
     parsed.search = parsed.hash = parsed.auth = '';
     
     var location = url.format(parsed);
 
     env.response.statusCode = 201;
     env.response.setHeader('Location', location);
+    env.response.body = product;
 
     next(env);
   });
@@ -67,14 +78,14 @@ Products.prototype.show = function(env, next) {
 Products.prototype.update = function(env, next) {
   var key = parseInt(env.route.params.id);
 
-  var index;
+  var index = -1;
   this.products.forEach(function(p, i) {
     if (p.id === key) {
       index = i;
     }
   });
 
-  if (index) {
+  if (index > -1) {
     var self = this;
     env.request.getBody(function(err, body) {
       if (err || !body) {
@@ -96,7 +107,7 @@ Products.prototype.update = function(env, next) {
 Products.prototype.remove = function(env, next) {
   var key = parseInt(env.route.params.id);
 
-  var index;
+  var index = null;
 
   for (var i = 0; i < this.products.length; i++) {
     if (this.products[i].id === key) {
@@ -104,7 +115,7 @@ Products.prototype.remove = function(env, next) {
     }
   }
 
-  if (index) {
+  if (index !== null) {
     this.products.splice(index, 1);
     env.response.statusCode = 204;
   } else {
