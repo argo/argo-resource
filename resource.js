@@ -185,7 +185,7 @@ ResourceInstaller.prototype.install = function(argo) {
           var isHandler = (obj.handler.length === 1)/* function(handle) */;
 
           if (isHandler) {
-            /*var hijacker = function(handle) {
+            var hijacker = function(handle) {
               handler(function(type, options, fn) {
                 if (typeof options === 'function') {
                   fn = options;
@@ -193,35 +193,7 @@ ResourceInstaller.prototype.install = function(argo) {
                 }
 
                 if (type === 'request') {
-                  var wrapper = function(env, next) {
-                    if (!env.resource.responseType) {
-                      var negotiator = new Negotiator(env.request);
-                      var preferred = negotiator.preferredMediaType(produces);
-                      env.resource.responseType = preferred;
-                    }
-
-                    if (env.resource.requestType) {
-                      return fn(env, next);
-                    }
-
-                    var methods = ['PUT', 'POST', 'PATCH'];
-                    if (methods.indexOf(env.request.method) !== -1) {
-                      if (env.request.headers['content-type'] && consumes
-                          && consumes.indexOf(env.request.headers['content-type']) == -1) {
-                        env.response.statusCode = 415;
-                        env.resource.error = { message: 'Unsupported Media Type', supported: consumes };
-                        env.resource._skipHandler = true;
-                        return next(env);
-                      } else {
-                        env.resource.requestType = env.request.headers['content-type'];
-
-                        fn(env, next);
-                      }
-                    } else {
-                      fn(env, next);
-                    }
-                  };
-
+                  var wrapper = self._setupRequest(obj, fn, produces, consumes);
                   handle(type, options, wrapper);
                 } else {
                   handle(type, options, fn);
@@ -229,7 +201,7 @@ ResourceInstaller.prototype.install = function(argo) {
               });
             };
 
-            server[m](obj.path, hijacker);*/
+            server[m](obj.path, hijacker);
           } else {
             var oldObj = obj;
             server[m](obj.path, function(handle) {
@@ -239,94 +211,98 @@ ResourceInstaller.prototype.install = function(argo) {
                 obj[key] = oldObj[key];
               });
 
-              handle('request', function(env, next) {
-                var pipeline = pipeworks()
-                  .fit(function(context, next) {
-                    context.env.resource.next = context.next;
-                    context.env.resource.current = context.obj;
-                    context.env.resource.handler = context.handler;
-
-                    var pre = context.env.pipeline('resource:request:before');
-                    if (pre) {
-                      pre.siphon(context.env, function(env) {
-                        context.env = env;
-                        context.obj = env.resource.current;
-                        context.next = env.resource.next;
-                        context.handler = env.resource.handler;
-                        next(context);
-                      });
-                    } else {
-                      next(context);
-                    }
-                  })
-                  .fit(function(context, next) {
-                    if (context.env.resource._skip) {
-                      return next(context);
-                    }
-
-                    if (!context.env.resource.responseType) {
-                      var negotiator = new Negotiator(context.env.request);
-                      var preferred = negotiator.preferredMediaType(produces);
-                      context.env.resource.responseType = preferred;
-                    }
-
-                    if (context.env.resource.requestType) {
-                      return context.handler(context.env, function(env) {
-                        context.env = env;
-                        context.obj = env.resource.current;
-                        context.next = env.resource.next;
-                        context.handler = env.resource.handler;
-                        next(context);
-                      });
-                    }
-
-                    var methods = ['PUT', 'POST', 'PATCH'];
-                    if (methods.indexOf(context.env.request.method) !== -1) {
-                      if (context.env.request.headers['content-type'] && consumes
-                          && consumes.indexOf(context.env.request.headers['content-type']) == -1) {
-                        context.env.response.statusCode = 415;
-                        context.env.resource.error = { message: 'Unsupported Media Type', supported: consumes };
-
-                        return next(context);
-                      } else {
-                        context.env.resource.requestType = env.request.headers['content-type'];
-                      }
-                    }
-
-                    context.handler(context.env, function(env) {
-                      context.env = env;
-                      context.obj = env.resource.current;
-                      context.next = env.resource.next;
-                      context.handler = env.resource.handler;
-                      next(context);
-                    });
-                  })
-                  .fit(function(context, next) {
-                    var post = context.env.pipeline('resource:request:after');
-                    if (post) {
-                      post.siphon(context.env, function(env) {
-                        context.env = env;
-                        context.obj = env.resource.current;
-                        context.next = env.resource.next;
-                        context.handler = env.resource.handler;
-                        next(context);
-                      });
-                    } else {
-                      next(context);
-                    }
-                  })
-                  .fit(function(context, next) {
-                    context.next(context.env);
-                  });
-
-                var context = { env: env, next: next, obj: obj, handler: handler };
-                pipeline.flow(context);
-              });
+              handle('request', self._setupRequest(obj, handler, produces, consumes));
             });
           }
         });
       });
     });
+};
+
+ResourceInstaller.prototype._setupRequest = function(obj, handler, produces, consumes) {
+  return function(env, next) {
+    var pipeline = pipeworks()
+      .fit(function(context, next) {
+        context.env.resource.next = context.next;
+        context.env.resource.current = context.obj;
+        context.env.resource.handler = context.handler;
+
+        var pre = context.env.pipeline('resource:request:before');
+        if (pre) {
+          pre.siphon(context.env, function(env) {
+            context.env = env;
+            context.obj = env.resource.current;
+            context.next = env.resource.next;
+            context.handler = env.resource.handler;
+            next(context);
+          });
+        } else {
+          next(context);
+        }
+      })
+      .fit(function(context, next) {
+        if (context.env.resource._skip) {
+          return next(context);
+        }
+
+        if (!context.env.resource.responseType) {
+          var negotiator = new Negotiator(context.env.request);
+          var preferred = negotiator.preferredMediaType(produces);
+          context.env.resource.responseType = preferred;
+        }
+
+        if (context.env.resource.requestType) {
+          return context.handler(context.env, function(env) {
+            context.env = env;
+            context.obj = env.resource.current;
+            context.next = env.resource.next;
+            context.handler = env.resource.handler;
+            next(context);
+          });
+        }
+
+        var methods = ['PUT', 'POST', 'PATCH'];
+        if (methods.indexOf(context.env.request.method) !== -1) {
+          if (context.env.request.headers['content-type'] && consumes
+              && consumes.indexOf(context.env.request.headers['content-type']) == -1) {
+            context.env.response.statusCode = 415;
+            context.env.resource.error = { message: 'Unsupported Media Type', supported: consumes };
+
+            return next(context);
+          } else {
+            context.env.resource.requestType = env.request.headers['content-type'];
+          }
+        }
+
+        context.handler(context.env, function(env) {
+          context.env = env;
+          context.obj = env.resource.current;
+          context.next = env.resource.next;
+          context.handler = env.resource.handler;
+          next(context);
+        });
+      })
+      .fit(function(context, next) {
+        var post = context.env.pipeline('resource:request:after');
+        if (post) {
+          post.siphon(context.env, function(env) {
+            context.env = env;
+            context.obj = env.resource.current;
+            context.next = env.resource.next;
+            context.handler = env.resource.handler;
+            next(context);
+          });
+        } else {
+          next(context);
+        }
+      })
+      .fit(function(context, next) {
+        context.next(context.env);
+      });
+
+    var context = { env: env, next: next, obj: obj, handler: handler };
+    pipeline.flow(context);
+  }
 };
 
 module.exports = function(/* constructor, ...constructorArgs */) {
