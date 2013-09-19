@@ -11,11 +11,11 @@ Products.prototype.init = function(config) {
     .path('/products')
     .produces('application/json')
     .consumes('application/json')
-    .get('/', this.list, { operation: 'products:list' })
-    .post('/', this.create, { operation: 'products:create' })
-    .get('/{id}', this.show, { operation: 'products:show' })
-    .put('/{id}', this.update, { operation: 'products:update' })
-    .del('/{id}', this.remove, { operation: 'products:remove' });
+    .get('/', this.list, { action: 'products:list' })
+    .post('/', this.create, { action: 'products:create' })
+    .get('/{id}', this.show, { action: 'products:show' })
+    .put('/{id}', this.update, { action: 'products:update' })
+    .del('/{id}', this.remove, { action: 'products:remove' });
 };
 
 Products.prototype.list = function(env, next) {
