@@ -56,7 +56,6 @@ Locations.prototype.show = function(handle) {
 
     env.target.url = url.format(parsed);
 
-    console.log(env.target.url);
     next(env);
   });
 
@@ -78,10 +77,14 @@ Locations.prototype.show = function(handle) {
 
       if (ret.length) {
         ret = ret[0];
-      };
+        env.response.statusCode = 200;
+        env.response.body = ret;
+      } else {
+        env.response.removeHeader('Content-Type');
+        env.response.statusCode = 404;
+        env.response.body = '';
+      }
 
-      env.response.statusCode = 200;
-      env.response.body = ret;
 
       next(env);
     });
