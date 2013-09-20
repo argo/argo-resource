@@ -195,6 +195,16 @@ ResourceInstaller.prototype.install = function(argo) {
                 if (type === 'request') {
                   var wrapper = self._setupRequest(obj, fn, produces, consumes);
                   handle(type, options, wrapper);
+                } else if (type === 'response') {
+                  var wrapper = function(env, next) {
+                    if (env.resource._skip) {
+                      next(env);
+                    } else {
+                      fn(env, next);
+                    }
+                  };
+
+                  handle(type, options, wrapper);
                 } else {
                   handle(type, options, fn);
                 }
