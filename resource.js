@@ -200,6 +200,9 @@ ResourceInstaller.prototype.install = function(argo) {
                     if (env.resource._skip) {
                       next(env);
                     } else {
+                      if (env.resource.responseType && !env.response.getHeader('Content-Type')) {
+                        env.response.setHeader('Content-Type', env.resource.responseType);
+                      }
                       fn(env, next);
                     }
                   };
@@ -222,6 +225,12 @@ ResourceInstaller.prototype.install = function(argo) {
               });
 
               handle('request', self._setupRequest(obj, handler, produces, consumes));
+              handle('response', function(env, next) {
+                if (env.resource.responseType && !env.response.getHeader('Content-Type')) {
+                  env.response.setHeader('Content-Type', env.resource.responseType);
+                }
+                next(env);
+              });
             });
           }
         });
