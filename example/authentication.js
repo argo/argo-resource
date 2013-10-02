@@ -6,7 +6,7 @@ module.exports = function(handle) {
       if (username === 'kevin' && password === 'swiber') {
         var user = {
           username: username,
-          actions: ['products:list', 'products:create', 'products:show']
+          actions: ['products:list', 'products:create', 'products:show', 'products:update']
         };
 
         cb(null, user);

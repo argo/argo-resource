@@ -266,7 +266,7 @@ ResourceInstaller.prototype._setupRequest = function(obj, handler, produces, con
 
         if (!context.env.resource.responseType) {
           var negotiator = new Negotiator(context.env.request);
-          var preferred = negotiator.preferredMediaType(produces);
+          var preferred = negotiator.preferredMediaType(produces) || produces[0];
           context.env.resource.responseType = preferred;
         }
 
