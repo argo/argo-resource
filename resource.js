@@ -331,8 +331,14 @@ module.exports = function(/* constructor, ...constructorArgs */) {
   var constructorArgs = args.length > 1 ? args.slice(1) : undefined;
 
   var pkg = function(argo) {
-    var obj = Object.create(constructor.prototype);
-    obj.constructor.apply(obj, constructorArgs);
+    var obj;
+
+    if (constructor.prototype) {
+      obj = Object.create(constructor.prototype);
+      obj.constructor.apply(obj, constructorArgs);
+    } else if (constructor.init) {
+      obj = constructor;
+    }
 
     if (!obj.init) {
       throw new Error('Resource is missing an init function.');
