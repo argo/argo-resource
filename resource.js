@@ -239,6 +239,9 @@ ResourceInstaller.prototype.install = function(argo) {
 };
 
 ResourceInstaller.prototype._setupRequest = function(obj, handler, produces, consumes) {
+  obj.produces = produces;
+  obj.consumes = consumes;
+
   return function(env, next) {
     var pipeline = pipeworks()
       .fit(function(context, next) {
@@ -253,6 +256,8 @@ ResourceInstaller.prototype._setupRequest = function(obj, handler, produces, con
             context.obj = env.resource.current;
             context.next = env.resource.next;
             context.handler = env.resource.handler;
+            context.produces = env.resource.current.produces;
+            context.consumes = env.resource.current.consumes;
             next(context);
           });
         } else {
@@ -266,7 +271,7 @@ ResourceInstaller.prototype._setupRequest = function(obj, handler, produces, con
 
         if (!context.env.resource.responseType) {
           var negotiator = new Negotiator(context.env.request);
-          var preferred = negotiator.preferredMediaType(produces) || produces[0];
+          var preferred = negotiator.preferredMediaType(context.produces) || context.produces[0];
           context.env.resource.responseType = preferred;
         }
 
@@ -282,10 +287,10 @@ ResourceInstaller.prototype._setupRequest = function(obj, handler, produces, con
 
         var methods = ['PUT', 'POST', 'PATCH'];
         if (methods.indexOf(context.env.request.method) !== -1) {
-          if (context.env.request.headers['content-type'] && consumes
-              && consumes.indexOf(context.env.request.headers['content-type']) == -1) {
+          if (context.env.request.headers['content-type'] && context.consumes
+              && context.consumes.indexOf(context.env.request.headers['content-type']) == -1) {
             context.env.response.statusCode = 415;
-            context.env.resource.error = { message: 'Unsupported Media Type', supported: consumes };
+            context.env.resource.error = { message: 'Unsupported Media Type', supported: context.consumes };
 
             return next(context);
           } else {
@@ -319,7 +324,7 @@ ResourceInstaller.prototype._setupRequest = function(obj, handler, produces, con
         context.next(context.env);
       });
 
-    var context = { env: env, next: next, obj: obj, handler: handler };
+    var context = { env: env, next: next, obj: obj, handler: handler, produces: produces, consumes: consumes };
     pipeline.flow(context);
   }
 };
