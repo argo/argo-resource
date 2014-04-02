@@ -285,10 +285,16 @@ ResourceInstaller.prototype._setupRequest = function(obj, handler, produces, con
           });
         }
 
+        function checkWithParameters() {
+          var split = context.env.request.headers['content-type'].split(';')[0];
+          return (context.consumes.indexOf(split) !== -1);
+        }
+
         var methods = ['PUT', 'POST', 'PATCH'];
         if (methods.indexOf(context.env.request.method) !== -1) {
           if (context.env.request.headers['content-type'] && context.consumes
-              && context.consumes.indexOf(context.env.request.headers['content-type']) == -1) {
+              && context.consumes.indexOf(context.env.request.headers['content-type']) == -1
+              && !checkWithParameters) {
             context.env.response.statusCode = 415;
             context.env.resource.error = { message: 'Unsupported Media Type', supported: context.consumes };
 
