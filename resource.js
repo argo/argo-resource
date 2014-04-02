@@ -294,7 +294,7 @@ ResourceInstaller.prototype._setupRequest = function(obj, handler, produces, con
         if (methods.indexOf(context.env.request.method) !== -1) {
           if (context.env.request.headers['content-type'] && context.consumes
               && context.consumes.indexOf(context.env.request.headers['content-type']) == -1
-              && !checkWithParameters) {
+              && !checkWithParameters()) {
             context.env.response.statusCode = 415;
             context.env.resource.error = { message: 'Unsupported Media Type', supported: context.consumes };
 
