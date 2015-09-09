@@ -128,9 +128,17 @@ MyResource.prototype.init = function(config) {
     .get('/hello', this.getHello)
 };
 
-MyResource.prototype.postHello = function(env, next) {};
+MyResource.prototype.postHello = function(env, next) {
+  env.response.statusCode = 200;
+  env.response.body = { 'hello': 'world!' };  
+  next(env);
+};
 
-MyResource.prototype.getHello = function(env, next) {};
+MyResource.prototype.getHello = function(env, next) {
+  env.repsonse.statusCode = 200;
+  env.response.body = { 'hello': 'world!' };  
+  next(env);
+};
 
 ```
 
