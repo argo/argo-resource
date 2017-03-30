@@ -20,6 +20,6 @@
   "license": "MIT",
   "dependencies": {
     "negotiator": "~0.2.7",
-    "pipeworks": "~1.2.0"
+    "pipeworks": "~1.3.1"
   }
 }
