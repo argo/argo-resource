@@ -1,6 +1,6 @@
 {
   "name": "argo-resource",
-  "version": "0.0.11",
+  "version": "0.0.12",
   "description": "A resource API framework for Argo.",
   "main": "resource.js",
   "directories": {
